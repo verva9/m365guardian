@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy - M365 Guardian</title>
+<style>
+  body{margin:0;background:#fff;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;}
+  .wrap{max-width:620px;margin:0 auto;padding:40px 20px 80px;}
+  h1{font-size:22px;margin-bottom:4px;}
+  h2{font-size:15px;margin-top:28px;}
+  p,li{color:#444;font-size:14px;}
+  a{color:#1a56db;}
+  .draft-note{
+    background:#fff8e6;border:1px solid #d9a300;color:#5f4700;
+    padding:12px 14px;font-size:13px;margin-bottom:26px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="draft-note">
+    <strong>Draft placeholder, not final legal text.</strong> This is scaffolding to show the shape of what's needed. Have a lawyer review and finalize this before connecting any real customer tenant, especially for GDPR/UK GDPR if there will be EU or UK customers, and note any state-specific US privacy law obligations (e.g. CCPA) that may apply.
+  </div>
+  <h1>Privacy Policy</h1>
+  <p>Last updated: [DATE]</p>
+
+  <h2>What we access</h2>
+  <p>When you connect a Microsoft 365 tenant, we request read-only Microsoft Graph permissions: Conditional Access policies, directory role memberships, MFA registration details, guest invitation settings, and admin consent policy status. We never request or use permissions that allow modifying your tenant.</p>
+
+  <h2>What we store</h2>
+  <p>We store your tenant ID, a private access token used to view your own report, and the results of your most recent scans. We do not store individual user names, emails, or any content from your mailboxes, files, or Teams messages. Our checks only ever look at tenant-level configuration and aggregate MFA registration statistics.</p>
+
+  <h2>How long we keep it</h2>
+  <p>Scan data and connection records are automatically deleted after 90 days of inactivity. You can delete your data immediately at any time using the "Disconnect and delete my data" button on your report page.</p>
+
+  <h2>Who can see your report</h2>
+  <p>Your report is only accessible via a private link containing a randomly generated access token. Anyone with that link can view it, so treat it like a password. Do not share it publicly.</p>
+
+  <h2>Third parties</h2>
+  <p>We use [Vercel] for hosting, [Upstash] for data storage, and [Stripe] for payment processing on paid plans. [Add any additional subprocessors here, and confirm their own data handling terms are compatible with your commitments to customers.]</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy or a data deletion request: [YOUR CONTACT EMAIL].</p>
+</div>
+</body>
+</html>
