@@ -1,5 +1,7 @@
 const { Redis } = require("@upstash/redis");
 const { performScan } = require("../lib/runScan");
+const { parseJson } = require("../lib/redisJson");
+const { safeCompare } = require("../lib/security");
 
 const redis = Redis.fromEnv();
 
@@ -16,19 +18,27 @@ const redis = Redis.fromEnv();
 const MAX_TENANTS_PER_RUN = 40;
 
 module.exports = async (req, res) => {
+  // SECURITY: CRON_SECRET is required, not optional. Previously this route
+  // skipped auth entirely if CRON_SECRET wasn't set, meaning anyone who
+  // discovered the URL could trigger scans of every Pro customer's tenant on
+  // demand. Fail closed instead: no secret configured means this route
+  // refuses to run at all, rather than silently running unauthenticated.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = req.headers.authorization || "";
-    if (auth !== `Bearer ${cronSecret}`) {
-      res.status(401).json({ error: "Unauthorized." });
-      return;
-    }
+  if (!cronSecret) {
+    res.status(500).json({ error: "Server is missing CRON_SECRET. This route is disabled until it's configured.", code: "CRON_SECRET_MISSING" });
+    return;
+  }
+  const auth = req.headers.authorization || "";
+  const provided = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!safeCompare(provided, cronSecret)) {
+    res.status(401).json({ error: "Unauthorized.", code: "CRON_UNAUTHORIZED" });
+    return;
   }
 
   const clientId = process.env.AZURE_CLIENT_ID;
   const clientSecret = process.env.AZURE_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
-    res.status(500).json({ error: "Server is missing AZURE_CLIENT_ID / AZURE_CLIENT_SECRET env vars." });
+    res.status(500).json({ error: "Server is missing AZURE_CLIENT_ID / AZURE_CLIENT_SECRET env vars.", code: "AZURE_CONFIG_MISSING" });
     return;
   }
 
@@ -41,12 +51,12 @@ module.exports = async (req, res) => {
 
     for (const proKey of proKeys) {
       const proRaw = await redis.get(proKey);
-      const pro = proRaw ? JSON.parse(proRaw) : null;
+      const pro = parseJson(proRaw);
       if (!pro || !pro.active) continue;
 
       const mspKey = proKey.replace(/^msp-pro:/, "");
       const listRaw = await redis.get(`msp:${mspKey}`);
-      const list = listRaw ? JSON.parse(listRaw) : [];
+      const list = parseJson(listRaw) || [];
       list.forEach((t) => tenantIds.add(t.tenantId));
     }
 
@@ -66,6 +76,6 @@ module.exports = async (req, res) => {
 
     res.status(200).json(results);
   } catch (e) {
-    res.status(500).json({ error: "Cron re-scan run failed.", detail: String(e.message || e), partial: results });
+    res.status(500).json({ error: "Cron re-scan run failed.", code: "CRON_RUN_FAILED", detail: String(e.message || e).slice(0, 300), partial: results });
   }
 };

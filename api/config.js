@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
 
   // Short-lived, httpOnly cookie holding the one-time state value. Verified
   // in consent-callback.js when Microsoft redirects the admin back to us.
-  res.setHeader("Set-Cookie", `m365g_state=${state}; Max-Age=600; Path=/; HttpOnly; SameSite=Lax`);
+  res.setHeader("Set-Cookie", `m365g_state=${state}; Max-Age=600; Path=/; HttpOnly; Secure; SameSite=Lax`);
 
   res.status(200).json({
     clientId: process.env.AZURE_CLIENT_ID || "",

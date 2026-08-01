@@ -1,5 +1,6 @@
 const Stripe = require("stripe");
 const { Redis } = require("@upstash/redis");
+const { isBoundedString } = require("../lib/security");
 const redis = Redis.fromEnv();
 
 const IP_LIMIT = 10;
@@ -17,20 +18,20 @@ function getClientIp(req) {
 // which dashboard to unlock once payment succeeds.
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
-    res.status(405).json({ error: "method not allowed" });
+    res.status(405).json({ error: "method not allowed", code: "METHOD_NOT_ALLOWED" });
     return;
   }
 
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const priceId = process.env.STRIPE_PRICE_ID;
   if (!secretKey || !priceId) {
-    res.status(500).json({ error: "Payments aren't configured yet (missing STRIPE_SECRET_KEY / STRIPE_PRICE_ID)." });
+    res.status(500).json({ error: "Payments aren't configured yet (missing STRIPE_SECRET_KEY / STRIPE_PRICE_ID).", code: "STRIPE_CONFIG_MISSING" });
     return;
   }
 
   const { mspKey } = req.body || {};
-  if (!mspKey) {
-    res.status(400).json({ error: "mspKey is required." });
+  if (!isBoundedString(mspKey, 128)) {
+    res.status(400).json({ error: "mspKey is required.", code: "MISSING_PARAMS" });
     return;
   }
 
@@ -41,7 +42,7 @@ module.exports = async (req, res) => {
     const count = await redis.incr(key);
     if (count === 1) await redis.expire(key, IP_WINDOW_SECONDS);
     if (count > IP_LIMIT) {
-      res.status(429).json({ error: "Too many checkout attempts from your network. Please try again later." });
+      res.status(429).json({ error: "Too many checkout attempts from your network. Please try again later.", code: "RATE_LIMITED_IP" });
       return;
     }
   } catch (e) {
@@ -53,7 +54,7 @@ module.exports = async (req, res) => {
     // so we're not selling an upgrade for a dashboard that doesn't exist yet.
     const listRaw = await redis.get(`msp:${mspKey}`);
     if (!listRaw) {
-      res.status(400).json({ error: "Link at least one tenant to this dashboard before upgrading." });
+      res.status(400).json({ error: "Link at least one tenant to this dashboard before upgrading.", code: "MSP_DASHBOARD_NOT_FOUND" });
       return;
     }
 
@@ -72,6 +73,6 @@ module.exports = async (req, res) => {
 
     res.status(200).json({ url: session.url });
   } catch (e) {
-    res.status(500).json({ error: "Could not start checkout. Please try again.", detail: String(e.message || e) });
+    res.status(500).json({ error: "Could not start checkout. Please try again.", code: "CHECKOUT_FAILED", detail: String(e.message || e).slice(0, 300) });
   }
 };

@@ -1,4 +1,6 @@
 const { Redis } = require("@upstash/redis");
+const { parseJson } = require("../lib/redisJson");
+const { isBoundedString } = require("../lib/security");
 const redis = Redis.fromEnv();
 
 // Returns the latest score for every tenant linked to an MSP dashboard key.
@@ -6,8 +8,8 @@ const redis = Redis.fromEnv();
 // same trust model as a tenant's own access token.
 module.exports = async (req, res) => {
   const { mspKey } = req.query;
-  if (!mspKey) {
-    res.status(400).json({ error: "mspKey query param is required." });
+  if (!isBoundedString(mspKey, 128)) {
+    res.status(400).json({ error: "mspKey query param is required.", code: "MISSING_PARAMS" });
     return;
   }
 
@@ -16,8 +18,8 @@ module.exports = async (req, res) => {
       redis.get(`msp:${mspKey}`),
       redis.get(`msp-pro:${mspKey}`),
     ]);
-    const list = listRaw ? JSON.parse(listRaw) : [];
-    const pro = proRaw ? JSON.parse(proRaw) : null;
+    const list = parseJson(listRaw) || [];
+    const pro = parseJson(proRaw);
     const isPro = !!(pro && pro.active);
 
     if (list.length === 0) {
@@ -33,7 +35,7 @@ module.exports = async (req, res) => {
         try {
           const scanRaw = await redis.get(`scan:${entry.tenantId}`);
           if (scanRaw) {
-            const scan = JSON.parse(scanRaw);
+            const scan = parseJson(scanRaw);
             score = typeof scan.score === "number" ? scan.score : null;
             tenantName = scan.tenantName || null;
             scannedAt = scan.scannedAt || null;
@@ -57,6 +59,6 @@ module.exports = async (req, res) => {
 
     res.status(200).json({ tenants, isPro });
   } catch (e) {
-    res.status(500).json({ error: "Could not load dashboard." });
+    res.status(500).json({ error: "Could not load dashboard.", code: "MSP_DASHBOARD_LOAD_FAILED" });
   }
 };

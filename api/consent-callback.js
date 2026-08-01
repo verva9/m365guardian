@@ -1,5 +1,6 @@
 const { Redis } = require("@upstash/redis");
 const crypto = require("crypto");
+const { safeCompare, isValidTenantId } = require("../lib/security");
 const redis = Redis.fromEnv();
 
 const RETENTION_SECONDS = 60 * 60 * 24 * 90; // 90 days - see data retention note in README
@@ -13,7 +14,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  if (admin_consent !== "True" || !tenant) {
+  if (admin_consent !== "True" || !tenant || !isValidTenantId(tenant)) {
     res.writeHead(302, { Location: `/?consent_error=${encodeURIComponent("Admin consent was not granted.")}` });
     res.end();
     return;
@@ -21,8 +22,10 @@ module.exports = async (req, res) => {
 
   // Verify the state param matches one we actually issued (CSRF/replay protection).
   // The state is a one-time token set in a cookie before redirecting to Microsoft.
+  // Compared with safeCompare (constant-time) rather than !== to avoid leaking
+  // timing information about how much of the state token an attacker has guessed.
   const expectedState = getCookie(req, "m365g_state");
-  if (!expectedState || !state || expectedState !== state) {
+  if (!expectedState || !state || !safeCompare(expectedState, state)) {
     res.writeHead(302, {
       Location: `/?consent_error=${encodeURIComponent("This consent link is invalid or expired. Please start the connect flow again.")}`,
     });
@@ -49,7 +52,7 @@ module.exports = async (req, res) => {
   }
 
   res.writeHead(302, {
-    "Set-Cookie": "m365g_state=; Max-Age=0; Path=/", // clear the one-time state cookie
+    "Set-Cookie": "m365g_state=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax", // clear the one-time state cookie
     Location: `/?tenant=${encodeURIComponent(tenant)}&token=${accessToken}&connected=1`,
   });
   res.end();

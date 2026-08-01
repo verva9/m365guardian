@@ -115,8 +115,9 @@ accounts/credentials - I can't create these for you. Do them in this order:
 4. **Set all env vars in Vercel** (Project → Settings → Environment
    Variables), then redeploy: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`,
    `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`,
-   `CRON_SECRET` (any random string), and optionally
-   `AZURE_CLIENT_SECRET_EXPIRES`.
+   `CRON_SECRET` (any random string - **required**, not optional: the cron
+   re-scan route refuses to run at all if this isn't set, rather than running
+   unauthenticated), and optionally `AZURE_CLIENT_SECRET_EXPIRES`.
 5. **Update the Azure redirect URI** to your real Vercel domain (see below),
    and replace `YOUR-DOMAIN-HERE` in `public/robots.txt` and
    `public/sitemap.xml` with the same domain.
@@ -142,7 +143,8 @@ accounts/credentials - I can't create these for you. Do them in this order:
 - **PDF export** - "Download PDF" on the report page uses the browser's native print-to-PDF (a dedicated print stylesheet hides nav/buttons), so no extra JS dependency.
 - **Go-to-market assets** - `marketing/outreach-templates.md` has ready-to-send cold email, LinkedIn DM, Reddit, Show HN, and design-partner outreach templates based on the market research (MSPs are the real buyer, manual audits cost $1,200-$9,000).
 - **Stripe billing portal** - Pro customers get a "Manage billing" link (`api/create-portal-session.js`) to self-serve cancel/update payment instead of emailing you.
-- **Weekly auto re-scan for Pro tenants** - `api/cron-rescan.js` + `vercel.json` re-scans every tenant on a Pro dashboard every Monday, so the dashboard is never more than a week stale. Protect it with a `CRON_SECRET` env var.
+- **Weekly auto re-scan for Pro tenants** - `api/cron-rescan.js` + `vercel.json` re-scans every tenant on a Pro dashboard every Monday, so the dashboard is never more than a week stale. Requires a `CRON_SECRET` env var - the route fails closed (500) if it's missing, rather than running without auth.
+- **Security hardening** - constant-time secret comparison (`lib/security.js`) for all token/state checks, GUID validation on every tenant ID before it touches a Graph URL or Redis key, bounded-length validation on all user-supplied strings, machine-readable `code` fields on every API error response, `Secure`/`HttpOnly` cookies, and CSP/HSTS/frame-options headers set in `vercel.json`.
 - **Tests** - `test/checks.test.js` and `test/debug.test.js` (pagination/graph helper tests) use Node's built-in test runner, no extra dependency. Run with `node --test test/checks.test.js test/debug.test.js`. Catches real logic bugs (one test run here caught an actual mock-signature bug before it could hide a scoring bug).
 - **UI rewrite** - the landing/report/dashboard pages were rebuilt away from the original dark-gradient "AI SaaS" template look toward a plain, utilitarian style (system fonts, light background, minimal color, no glossy cards) that reads more like a real security tool than a generated landing page. All copy also had em dashes removed.
 - **SEO basics** - `public/robots.txt` and `public/sitemap.xml` (replace `YOUR-DOMAIN-HERE` with your real domain after deploying).
